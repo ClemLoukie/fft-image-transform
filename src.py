@@ -1,3 +1,6 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
 def fft_1d(signal):
     return
 
@@ -50,3 +53,13 @@ def ifft_2d(matrix):
         matrix[row] = ifft_1d(matrix[row])
     
     return matrix
+
+'''Plots the resulting 2D DFT on a log scale plot.'''
+
+def plot_2d_dft(dft_matrix):
+    mag_spec = np.log(np.abs(dft_matrix) + 1)  # Log scale for better visualization
+    
+    plt.imshow(mag_spec, cmap='gray')
+    plt.colorbar()
+    plt.title('2D DFT (Log Scale)')
+    plt.show()
