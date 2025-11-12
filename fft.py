@@ -1,5 +1,21 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import argparse
+
+# COMAND LINE PARSING
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-m", help="Specify a mode")
+parser.add_argument("-i", help="Specify an image")
+
+args = parser.parse_args()
+
+
+# MODE DEFINITIONS
+
+# FOURIER ALGORITHMS
+
+"""A 1D FFT and IFFT implementation placeholder."""
 
 def fft_1d(signal):
     return
@@ -63,3 +79,5 @@ def plot_2d_dft(dft_matrix):
     plt.colorbar()
     plt.title('2D DFT (Log Scale)')
     plt.show()
+    
+    
