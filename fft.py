@@ -1,17 +1,21 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 import argparse
 
-# COMAND LINE PARSING
-
-parser = argparse.ArgumentParser()
-parser.add_argument("-m", help="Specify a mode")
-parser.add_argument("-i", help="Specify an image")
-
-args = parser.parse_args()
-
-
 # MODE DEFINITIONS
+
+def mode1(image):
+    return 
+
+def mode2(image):
+    return
+
+def mode3(image):
+    return
+
+def mode4():
+    return
 
 # FOURIER ALGORITHMS
 
@@ -80,4 +84,28 @@ def plot_2d_dft(dft_matrix):
     plt.title('2D DFT (Log Scale)')
     plt.show()
     
-    
+# COMAND LINE PARSING
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-m", help="Specify a mode", choices=['1','2','3','4'], default = 1)
+parser.add_argument("-i", help="Specify an image", default = "moonlanding.png")
+
+args = parser.parse_args()
+
+# print("------ Argument Parsing Test ------")
+# print(f"Mode selected (-m): {args.m}")
+# print(f"Image selected (-i): {args.i}")
+# print("-----------------------------------")
+
+def main():
+    if args.m == 1:
+        mode1(args.i)
+    elif args.m == 2:
+        mode2(args.i)
+    elif args.m == 3:
+        mode3(args.i)
+    elif args.m == 4:
+        mode4()
+
+if __name__ == "__main__":
+    main()
