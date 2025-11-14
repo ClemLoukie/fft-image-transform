@@ -19,13 +19,25 @@ def mode4():
 
 # FOURIER ALGORITHMS
 
-"""A 1D FFT and IFFT implementation placeholder."""
+"""A 1D direct fourier transform implementation."""
 
-def fft_1d(signal):
-    return
+def fft_1d(x):
+    N = len(x)
+    n = np.arange(N) ## array of 1 to N-1
+    k = n.reshape((N,1)) ## column vector of frequency indices k
+    e = np.exp(-2j * np.pi * k * n/N) ## matrix where element at [k,n] is the exponential for those values
+    X = np.dot(e,x) ## multiply arg x with matrix
+    return X
 
-def ifft_1d(signal):
-    return
+
+"""A 1D inverse direct fourier transform implementation."""
+def ifft_1d(X):
+    N = len(X)
+    n = np.arange(N) ## array from 0 to N-1
+    k = n.reshape((N,1)) ## frequency indices k
+    e = np.exp(2j * np.pi * k * n / N) ## matrix
+    x = (1/N) * np.dot(e, X)
+    return x
 
 """A 2D FFT is performed by first applying a 1D FFT to each column of a matrix, 
 and then applying a 1D FFT to each row of the result."""
