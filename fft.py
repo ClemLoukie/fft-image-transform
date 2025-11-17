@@ -2,11 +2,38 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import argparse
+import sys
 
 # MODE DEFINITIONS
 
 def mode1(image):
-    return 
+    original_image = plt.imread(image)
+    image_data = load_image(image)
+    if image_data is None: 
+
+        return
+    
+    dft_matrix = fft_2d(image_data)
+    
+    dft_shifted = np.fft.fftshift(dft_matrix)  ## shift zero-frequency component to the center for visualization
+
+    # plot original image
+    plt.figure(figsize=(12, 6))
+    
+    plt.subplot(1, 2, 1)
+    plt.imshow(original_image, cmap='gray')
+    plt.title(f'Original Image ({original_image.shape[0]}x{original_image.shape[1]})')
+    plt.axis('off')
+    
+    plt.subplot(1, 2, 2)
+    magnitude_spectrum = np.abs(dft_shifted)
+    plt.imshow(magnitude_spectrum, cmap='gray', norm=LogNorm(vmin=1.0, vmax=magnitude_spectrum.max()))
+    plt.title('Centered 2D DFT (Log Scale)')
+    plt.colorbar(label='Magnitude (Log Scale)')
+    plt.axis('off')
+    
+    plt.suptitle(f"Mode 1: Original Image and its Fourier Transform")
+    plt.show()
 
 def mode2(image):
     return
@@ -95,11 +122,45 @@ def plot_2d_dft(dft_matrix):
     plt.colorbar()
     plt.title('2D DFT (Log Scale)')
     plt.show()
+
+def is_power_of_2(n):
+    return (n > 0) and ((n & (n - 1)) == 0)
+
+def load_image(image):
+    try:
+        original_image = plt.imread(image)
+        if original_image.ndim == 3: ## if not in 2D
+            image_data = np.mean(original_image[:, :, :3], axis=2) ## convert by averaging RGB channels
+        else:
+            image_data = original_image
+            
+        rows, cols = image_data.shape
+        
+        if not is_power_of_2(rows) or not is_power_of_2(cols):
+            print(f"Image dimensions are not powers of 2... resizing.")
+            
+            max_dim = max(rows, cols)
+            next_power = 1
+            while next_power < max_dim: ## find next power of 2 to pad wth 0s
+                next_power *= 2
+            
+            new_image = np.zeros((next_power, next_power))
+            new_image[:rows, :cols] = image_data 
+            
+            return new_image
+        
+        return image_data
+
+    except FileNotFoundError:
+        print(f"Error: Image file '{image}' not found.")
+        return None
     
 # COMAND LINE PARSING
 
+print(f"Starting argument parsing...")   
+
 parser = argparse.ArgumentParser()
-parser.add_argument("-m", help="Specify a mode", choices=['1','2','3','4'], default = 1)
+parser.add_argument("-m", help="Specify a mode", type=int, choices=[1,2,3,4], default = 1)
 parser.add_argument("-i", help="Specify an image", default = "moonlanding.png")
 
 args = parser.parse_args()
@@ -110,6 +171,7 @@ args = parser.parse_args()
 # print("-----------------------------------")
 
 def main():
+    print(f"Starting FFT Script in Mode {args.m} on Image: {args.i} ")   
     if args.m == 1:
         mode1(args.i)
     elif args.m == 2:
