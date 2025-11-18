@@ -15,7 +15,7 @@ def mode1(image):
     
     dft_matrix = fft_2d(image_data)
     
-    dft_shifted = np.fft.fftshift(dft_matrix)  ## shift zero-frequency component to the center for visualization
+    dft_shifted = np.fft.fftshift(dft_matrix)  # shift zero-frequency component to the center for visualization
 
     # plot original image
     plt.figure(figsize=(12, 6))
@@ -36,7 +36,64 @@ def mode1(image):
     plt.show()
 
 def mode2(image):
-    return
+    # load original (for display) and grayscale/padded data for processing
+    try:
+        original_image = plt.imread(image)
+    except FileNotFoundError:
+        print(f"Error: Image file '{image}' not found.")
+        return
+
+    image_data = load_image(image)
+    if image_data is None:
+        return
+
+    data_for_fft = image_data.astype(float).copy()
+    dft = fft_2d(data_for_fft)
+    dft_shifted = np.fft.fftshift(dft) ## shift the zero frequency to center, high frequencies will be in corners
+
+    ## filter
+    rows, cols = dft_shifted.shape
+    center_r  =  rows // 2
+    center_c = cols // 2
+
+    keep_frac = 0.10  ## we only keep 10% of the lowest frequencies
+    radius = int(min(rows, cols) * keep_frac) ## only freqs inside this radius will be set to 1 in the mask
+
+    r = np.arange(rows) - center_r ## array of row coordinates to compute distance later
+    c = np.arange(cols) - center_c ## array of column coordinates to compute distance later
+    C, R = np.meshgrid(c, r)
+    dist = np.sqrt(R**2 + C**2) ## distance from the center, determines frequency magnitude
+    mask = dist <= radius ## true if the point is within the radius
+
+    dft_filtered_shifted = dft_shifted * mask ## setting all frequencies outside the radius to 0
+
+    nonzeros = np.count_nonzero(mask)
+    total = mask.size
+    print(f"Using {nonzeros} non-zero Fourier coefficients out of {total}")
+
+    dft_filtered = np.fft.ifftshift(dft_filtered_shifted) ## shift back before inverse FFT, zero frequencies at corners
+    denoised_complex = ifft_2d(dft_filtered.copy()) ## inverse FFT to get denoised image
+    denoised_real = np.real(denoised_complex) ## keep real part
+
+    orig_rows, orig_cols = original_image.shape[:2] ## crop
+    denoised_cropped = denoised_real[:orig_rows, :orig_cols]
+
+    ## display
+    plt.figure(figsize=(12, 6))
+    plt.subplot(1,2,1)
+    if original_image.ndim == 3:
+        plt.imshow(original_image)
+    else:
+        plt.imshow(original_image, cmap='gray')
+    plt.title(f'Original ({orig_rows}x{orig_cols})')
+    plt.axis('off')
+
+    plt.subplot(1,2,2)
+    plt.imshow(denoised_cropped, cmap='gray')
+    plt.title('Denoised (low-pass filtered)')
+    plt.axis('off')
+    plt.suptitle('Mode 2: Original and Denoised Image')
+    plt.show()
 
 def mode3(image):
     return
@@ -66,57 +123,82 @@ def ifft_1d(X):
     x = (1/N) * np.dot(e, X)
     return x
 
-"""A 2D FFT is performed by first applying a 1D FFT to each column of a matrix, 
-and then applying a 1D FFT to each row of the result."""
 
-def fft_2d(matrix): #NOTE THIS FUNCTION MODIFIES THE INPUTED MATRIX!!!!
-    result = []
-    # 1D FFT on each column
-    
-    # Get Column
-    column =[]
-    for col in range(len(matrix[0])): # assuming same size
-        for row in range(len(matrix)):
-            column.append(matrix[row][col])
-        column = fft_1d(column) 
-        for row in range(len(matrix)):
-            matrix[row][col]=column[row]
-        column =[]
-    
-    # 1 D FFT on each row of result
-    for row in range(len(matrix)):
-        matrix[row] = fft_1d(matrix[row])
-    
-    return matrix
+"""A 2D FFT is performed by first applying a 1D FFT to each row, then each column."""
+def fft_2d(matrix):
+    ## fft on all rows
+    dft_rows = np.apply_along_axis(fft_1d, axis=1, arr=matrix)
 
-'''A 2D IFFT can be implemented by performing a 1D IFFT on all the rows of 
-the 2D frequency spectrum, and then performing another 1D IFFT on all the 
-columns of the resulting matrix'''
+    ## fft on all columns
+    dft_cols = np.apply_along_axis(fft_1d, axis=1, arr=dft_rows.T)
 
+    ## transpose
+    return dft_cols.T
+
+
+'''A 2D IFFT can be implemented by performing a 1D IFFT on all the rows, 
+and then performing another 1D IFFT on all the columns'''
 def ifft_2d(matrix): 
-    result = []
-    # 1D IFFT on each column
+    ## inverse fft on all rows
+    idft_rows = np.apply_along_axis(ifft_1d, axis=1, arr=matrix)
+
+    ## inverse fft on all columns
+    idft_cols = np.apply_along_axis(ifft_1d, axis=1, arr=idft_rows.T)
     
-    # Get Column
-    column =[]
-    for col in range(len(matrix[0])): # assuming same size
-        for row in range(len(matrix)):
-            column.append(matrix[row][col])
-        column = ifft_1d(column) 
-        for row in range(len(matrix)):
-            matrix[row][col]=column[row]
-        column =[]
+    ## transpose
+    return idft_cols.T
+
+# """A 2D FFT is performed by first applying a 1D FFT to each column of a matrix, 
+# and then applying a 1D FFT to each row of the result."""
+
+# def fft_2d(matrix): #NOTE THIS FUNCTION MODIFIES THE INPUTED MATRIX!!!!
+#     result = []
+#     # 1D FFT on each column
     
-    # 1 D IFFT on each row of result
-    for row in range(len(matrix)):
-        matrix[row] = ifft_1d(matrix[row])
+#     # Get Column
+#     column =[]
+#     for col in range(len(matrix[0])): # assuming same size
+#         for row in range(len(matrix)):
+#             column.append(matrix[row][col])
+#         column = fft_1d(column) 
+#         for row in range(len(matrix)):
+#             matrix[row][col]=column[row]
+#         column =[]
     
-    return matrix
+#     # 1 D FFT on each row of result
+#     for row in range(len(matrix)):
+#         matrix[row] = fft_1d(matrix[row])
+    
+#     return matrix
+
+# '''A 2D IFFT can be implemented by performing a 1D IFFT on all the rows of 
+# the 2D frequency spectrum, and then performing another 1D IFFT on all the 
+# columns of the resulting matrix'''
+
+# def ifft_2d(matrix): 
+#     result = []
+#     # 1D IFFT on each column
+    
+#     # Get Column
+#     column =[]
+#     for col in range(len(matrix[0])): # assuming same size
+#         for row in range(len(matrix)):
+#             column.append(matrix[row][col])
+#         column = ifft_1d(column) 
+#         for row in range(len(matrix)):
+#             matrix[row][col]=column[row]
+#         column =[]
+    
+#     # 1 D IFFT on each row of result
+#     for row in range(len(matrix)):
+#         matrix[row] = ifft_1d(matrix[row])
+    
+#     return matrix
 
 '''Plots the resulting 2D DFT on a log scale plot.'''
 
 def plot_2d_dft(dft_matrix):
-    mag_spec = np.log(np.abs(dft_matrix) + 1)  # Log scale for better visualization
+    mag_spec = np.log(np.abs(dft_matrix) + 1)  ## log scale 
     
     plt.imshow(mag_spec, cmap='gray')
     plt.colorbar()
