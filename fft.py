@@ -202,6 +202,9 @@ def mode4():
     plt.errorbar(sizes, averages_naive, yerr=2*np.array(std_naive),marker='o', label="Naive DFT (2D)")
     plt.errorbar(sizes, averages_fft, yerr=2*np.array(std_fft), marker='o', label="FFT (2D)")
     plt.legend()
+    plt.xlabel('Matrix Size (N x N)')
+    plt.ylabel('Average Runtime (seconds)')
+    plt.suptitle('Mode 4: Runtime Comparison of 2D DFT vs 2D FFT')
     plt.show()
 
 # FOURIER ALGORITHMS
