@@ -3,17 +3,18 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import argparse
 import sys
+import time
 
 # MODE DEFINITIONS
 
 def mode1(image):
-    original_image = plt.imread(image)
-    image_data = load_image(image)
+    original_image, image_data = load_image(image)
+    print(f"Completed image loading.")
     if image_data is None: 
 
         return
     
-    dft_matrix = fft_2d(image_data)
+    dft_matrix = fft2d_cooley(image_data)
     
     dft_shifted = np.fft.fftshift(dft_matrix)  # shift zero-frequency component to the center for visualization
 
@@ -36,19 +37,12 @@ def mode1(image):
     plt.show()
 
 def mode2(image):
-    # load original (for display) and grayscale/padded data for processing
-    try:
-        original_image = plt.imread(image)
-    except FileNotFoundError:
-        print(f"Error: Image file '{image}' not found.")
-        return
-
-    image_data = load_image(image)
+    original_image, image_data = load_image(image)
     if image_data is None:
         return
 
     data_for_fft = image_data.astype(float).copy()
-    dft = fft_2d(data_for_fft)
+    dft = fft2d_cooley(data_for_fft)
     dft_shifted = np.fft.fftshift(dft) ## shift the zero frequency to center, high frequencies will be in corners
 
     ## filter
@@ -96,15 +90,111 @@ def mode2(image):
     plt.show()
 
 def mode3(image):
-    return
+    
+    # Step 0: Load original (for display)
+    try:
+        original_image = plt.imread(image)
+    except FileNotFoundError:
+        print(f"Error: Image file '{image}' not found.")
+        return
+
+    image_data = load_image(image)
+    if image_data is None:
+        return
+    
+    # STEP 1: Compute 2D DFT
+    data_for_fft = image_data.astype(float).copy()  
+    dft = fft2d_cooley(data_for_fft)
+    
+    magnitude_spectrum = np.abs(dft)
+    flattentened_magnitude = magnitude_spectrum.flatten()    
+    
+    levels = [100, 50, 90, 95, 99, 99.9]  ## different compression levels (percentage of coefficients to keep)
+        
+    # STEP 2: COMPRESSION
+    
+    images = []
+    for level in levels:
+        # Get the compression
+        threshold = np.percentile(flattentened_magnitude, 100 - level)
+        mask = magnitude_spectrum >= threshold  ## keep coefficients above threshold
+        compressed_dft = dft * mask
+    
+        nonzeros = np.count_nonzero(mask)
+        total = mask.size
+        print(f"Level {level}%: Using {nonzeros} non-zero Fourier coefficients out of {total}")
+        
+        # Inverse DFT to get compressed image
+        compressed_image_complex = ifft_2d(compressed_dft.copy())
+        compressed_image_real = np.real(compressed_image_complex)
+        images.append(compressed_image_real)
+        
+        
+    # STEP 3: DISPLAY
+    for i in range (len(images)):
+        compressed_image = images[i]
+        level = levels[i]
+        plt.subplot(2, 3, i + 1)
+        plt.imshow(compressed_image, cmap='gray')
+        plt.title(f'Level {level}%')
+        plt.axis('off')
+        
+    plt.suptitle("Mode 3: Image Compression at Different Levels")
+    plt.show()
 
 def mode4():
-    return
+    averages_fft = []
+    std_fft = []
+    averages_naive = []
+    std_naive = []
+    
+    upper = 9
+    
+    for i in range (5,upper+1): #2^5 and move up to 2^10
+    
+        times_naive = []
+        times_fft = []
+        for _ in range (10):
+            array = np.random.rand(2**i, 2**i) # generate random 2D array
+            
+            # NAIVE
+            start_time = time.time()
+            fft_2d(array)
+            times_naive.append(time.time() - start_time)
+            
+            # FFT
+            start_time = time.time()
+            fft2d_cooley(array)
+            times_fft.append(time.time() - start_time)
+            
+        average_time_naive = np.mean(times_naive)
+        average_time_fft = np.mean(times_fft)
+        std_time_naive = np.std(times_naive)
+        std_time_fft = np.std(times_fft)
+
+        print(f"Size {2**i}x{2**i}")
+        print(f"  Naive mean: {average_time_naive}s  variance: {std_time_naive}")
+        print(f"  FFT   mean: {average_time_fft}s  variance: {std_time_fft}")
+        
+        averages_fft.append(average_time_fft)
+        std_fft.append(std_time_fft)
+        averages_naive.append(average_time_naive)
+        std_naive.append(std_time_naive)
+    
+    # Plotting
+    plt.figure()
+    sizes = [2**i for i in range(5,upper+1)]
+    plt.errorbar(sizes, averages_naive, yerr=2*np.array(std_naive),marker='o', label="Naive DFT (2D)")
+    plt.errorbar(sizes, averages_fft, yerr=2*np.array(std_fft), marker='o', label="FFT (2D)")
+    plt.legend()
+    plt.xlabel('Matrix Size (N x N)')
+    plt.ylabel('Average Runtime (seconds)')
+    plt.suptitle('Mode 4: Runtime Comparison of 2D DFT vs 2D FFT')
+    plt.show()
 
 # FOURIER ALGORITHMS
 
 """A 1D direct fourier transform implementation."""
-
 def fft_1d(x):
     N = len(x)
     n = np.arange(N) ## array of 1 to N-1
@@ -123,6 +213,22 @@ def ifft_1d(X):
     x = (1/N) * np.dot(e, X)
     return x
 
+'''A 1D FFT implementation using the Cooley-Tukey algorithm.'''
+def cooley_tuckey(x):
+    if len(x) < 2:
+        return x
+    even = cooley_tuckey(x[0::2])
+    odd  = cooley_tuckey(x[1::2])
+    factor = np.exp(-2j * np.pi * np.arange(len(x)) / len(x))
+    return np.concatenate([ even + factor[:len(x)//2] * odd, even - factor[:len(x)//2] * odd])
+
+'''A 2D FFT implementation using the Cooley-Tukey algorithm.'''
+def fft2d_cooley(matrix):
+    # apply 1D FFT to each row
+    rows_done = np.apply_along_axis(cooley_tuckey, 1, matrix)
+    # apply 1D FFT to each column
+    cols_done = np.apply_along_axis(cooley_tuckey, 1, rows_done.T)
+    return cols_done.T
 
 """A 2D FFT is performed by first applying a 1D FFT to each row, then each column."""
 def fft_2d(matrix):
@@ -148,52 +254,6 @@ def ifft_2d(matrix):
     ## transpose
     return idft_cols.T
 
-# """A 2D FFT is performed by first applying a 1D FFT to each column of a matrix, 
-# and then applying a 1D FFT to each row of the result."""
-
-# def fft_2d(matrix): #NOTE THIS FUNCTION MODIFIES THE INPUTED MATRIX!!!!
-#     result = []
-#     # 1D FFT on each column
-    
-#     # Get Column
-#     column =[]
-#     for col in range(len(matrix[0])): # assuming same size
-#         for row in range(len(matrix)):
-#             column.append(matrix[row][col])
-#         column = fft_1d(column) 
-#         for row in range(len(matrix)):
-#             matrix[row][col]=column[row]
-#         column =[]
-    
-#     # 1 D FFT on each row of result
-#     for row in range(len(matrix)):
-#         matrix[row] = fft_1d(matrix[row])
-    
-#     return matrix
-
-# '''A 2D IFFT can be implemented by performing a 1D IFFT on all the rows of 
-# the 2D frequency spectrum, and then performing another 1D IFFT on all the 
-# columns of the resulting matrix'''
-
-# def ifft_2d(matrix): 
-#     result = []
-#     # 1D IFFT on each column
-    
-#     # Get Column
-#     column =[]
-#     for col in range(len(matrix[0])): # assuming same size
-#         for row in range(len(matrix)):
-#             column.append(matrix[row][col])
-#         column = ifft_1d(column) 
-#         for row in range(len(matrix)):
-#             matrix[row][col]=column[row]
-#         column =[]
-    
-#     # 1 D IFFT on each row of result
-#     for row in range(len(matrix)):
-#         matrix[row] = ifft_1d(matrix[row])
-    
-#     return matrix
 
 '''Plots the resulting 2D DFT on a log scale plot.'''
 
@@ -205,9 +265,11 @@ def plot_2d_dft(dft_matrix):
     plt.title('2D DFT (Log Scale)')
     plt.show()
 
+'''Checks if a number is a power of 2.'''
 def is_power_of_2(n):
     return (n > 0) and ((n & (n - 1)) == 0)
 
+'''Loads an image from file, converts to grayscale and pads to next power of 2 if necessary.'''
 def load_image(image):
     try:
         original_image = plt.imread(image)
@@ -217,6 +279,8 @@ def load_image(image):
             image_data = original_image
             
         rows, cols = image_data.shape
+
+        unpadded_data = image_data.copy();
         
         if not is_power_of_2(rows) or not is_power_of_2(cols):
             print(f"Image dimensions are not powers of 2... resizing.")
@@ -229,9 +293,9 @@ def load_image(image):
             new_image = np.zeros((next_power, next_power))
             new_image[:rows, :cols] = image_data 
             
-            return new_image
+            return unpadded_data, new_image
         
-        return image_data
+        return unpadded_data, image_data
 
     except FileNotFoundError:
         print(f"Error: Image file '{image}' not found.")
