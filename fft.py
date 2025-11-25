@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
@@ -8,43 +9,49 @@ import time
 # MODE DEFINITIONS
 
 def mode1(image):
-    original_image = plt.imread(image)
-    image_data = load_image(image)
+    original_image, image_data = load_image(image)
+    print(f"Completed image loading.")
     if image_data is None: 
 
         return
     
     dft_matrix = fft_2d(image_data)
     
-    dft_shifted = np.fft.fftshift(dft_matrix)  # shift zero-frequency component to the center for visualization
+    ## AM I ALLOWED TO USE THIS??
+    dft_shifted = np.fft.fftshift(dft_matrix)  ## shift zero-frequency component to the center for visualization
 
-    # plot original image
-    plt.figure(figsize=(12, 6))
+    ## using built-in numpy function to compare with expected result
+    dft_matrix_numpy = np.fft.fft2(image_data)
+    dft_shifted_numpy = np.fft.fftshift(dft_matrix_numpy)
+    magnitude_spectrum_numpy = np.abs(dft_shifted_numpy)
+
+    ## plot original image
+    plt.figure(figsize=(18, 6))
     
-    plt.subplot(1, 2, 1)
+    plt.subplot(1, 3, 1)
     plt.imshow(original_image, cmap='gray')
     plt.title(f'Original Image ({original_image.shape[0]}x{original_image.shape[1]})')
     plt.axis('off')
     
-    plt.subplot(1, 2, 2)
+    ## plot fft
+    plt.subplot(1, 3, 2)
     magnitude_spectrum = np.abs(dft_shifted)
     plt.imshow(magnitude_spectrum, cmap='gray', norm=LogNorm(vmin=1.0, vmax=magnitude_spectrum.max()))
     plt.title('Centered 2D DFT (Log Scale)')
-    plt.colorbar(label='Magnitude (Log Scale)')
+    plt.axis('off')
+
+    ## plot expected result
+    plt.subplot(1, 3, 3)
+    plt.imshow(magnitude_spectrum_numpy, cmap='gray', norm=LogNorm(vmin=1.0, vmax=magnitude_spectrum_numpy.max()))
+    plt.title('NumPy FFT (Reference)')
     plt.axis('off')
     
     plt.suptitle(f"Mode 1: Original Image and its Fourier Transform")
     plt.show()
 
-def mode2(image):
-    # load original (for display) and grayscale/padded data for processing
-    try:
-        original_image = plt.imread(image)
-    except FileNotFoundError:
-        print(f"Error: Image file '{image}' not found.")
-        return
 
-    image_data = load_image(image)
+def mode2(image):
+    original_image, image_data = load_image(image)
     if image_data is None:
         return
 
@@ -105,7 +112,7 @@ def mode3(image):
         print(f"Error: Image file '{image}' not found.")
         return
 
-    image_data = load_image(image)
+    original_image, image_data = load_image(image) ## clem I changed return type of load image please check if this is fine
     if image_data is None:
         return
     
@@ -157,14 +164,6 @@ def mode4():
     
     upper = 9
     
-    # TEMPORARY ADD
-    def fft2d_cooley(matrix):
-        # apply 1D FFT to each row
-        rows_done = np.apply_along_axis(cooley_tuckey, 1, matrix)
-        # apply 1D FFT to each column
-        cols_done = np.apply_along_axis(cooley_tuckey, 1, rows_done.T)
-        return cols_done.T
-    
     for i in range (5,upper+1): #2^5 and move up to 2^10
     
         times_naive = []
@@ -174,12 +173,12 @@ def mode4():
             
             # NAIVE
             start_time = time.time()
-            fft_2d(array)
+            dft_2d(array) ## changing this to the naive dft clem please check if this is okay (used to be fft_2d)
             times_naive.append(time.time() - start_time)
             
             # FFT
             start_time = time.time()
-            fft2d_cooley(array)
+            fft_2d(array)
             times_fft.append(time.time() - start_time)
             
         average_time_naive = np.mean(times_naive)
@@ -209,9 +208,8 @@ def mode4():
 
 # FOURIER ALGORITHMS
 
-"""A 1D direct fourier transform implementation."""
-
-def fft_1d(x):
+"""A naive 1D direct fourier transform implementation."""
+def dft_1d(x):
     N = len(x)
     n = np.arange(N) ## array of 1 to N-1
     k = n.reshape((N,1)) ## column vector of frequency indices k
@@ -220,8 +218,8 @@ def fft_1d(x):
     return X
 
 
-"""A 1D inverse direct fourier transform implementation."""
-def ifft_1d(X):
+"""A naive 1D inverse direct fourier transform implementation."""
+def idft_1d(X):
     N = len(X)
     n = np.arange(N) ## array from 0 to N-1
     k = n.reshape((N,1)) ## frequency indices k
@@ -229,23 +227,45 @@ def ifft_1d(X):
     x = (1/N) * np.dot(e, X)
     return x
 
-def cooley_tuckey(x):
+'''A 1D FFT implementation using the Cooley-Tukey algorithm.'''
+def fft_1d(x): ## old cooley_tuckey
     if len(x) < 2:
         return x
-    even = cooley_tuckey(x[0::2])
-    odd  = cooley_tuckey(x[1::2])
+    even = fft_1d(x[0::2])
+    odd  = fft_1d(x[1::2])
     factor = np.exp(-2j * np.pi * np.arange(len(x)) / len(x))
     return np.concatenate([ even + factor[:len(x)//2] * odd, even - factor[:len(x)//2] * odd])
 
+'''A 1D inverse FFT implementationof Cooley-Tukey.'''
+def ifft_1d(X):
+    result = ifft_1d_helper(X)
+    return result/len(X)
 
+def ifft_1d_helper(X):
+    N = len(X)
+    if N < 2:
+        return X
+    even = ifft_1d_helper(X[0::2])
+    odd  = ifft_1d_helper(X[1::2])
+    factor = np.exp( 2j * np.pi * np.arange(N) / N ) ## positive sign
+    result = np.concatenate([even + factor[:N//2] * odd, even - factor[:N//2] * odd])
+    return result
 
-"""A 2D FFT is performed by first applying a 1D FFT to each row, then each column."""
+'''A 2D FFT implementation using the Cooley-Tukey algorithm.'''
 def fft_2d(matrix):
+    # apply 1D FFT to each row
+    rows_done = np.apply_along_axis(fft_1d, 1, matrix)
+    # apply 1D FFT to each column
+    cols_done = np.apply_along_axis(fft_1d, 1, rows_done.T)
+    return cols_done.T
+
+"""A 2D DFT is performed by first applying a 1D DFT to each row, then each column."""
+def dft_2d(matrix):
     ## fft on all rows
-    dft_rows = np.apply_along_axis(fft_1d, axis=1, arr=matrix)
+    dft_rows = np.apply_along_axis(dft_1d, axis=1, arr=matrix)
 
     ## fft on all columns
-    dft_cols = np.apply_along_axis(fft_1d, axis=1, arr=dft_rows.T)
+    dft_cols = np.apply_along_axis(dft_1d, axis=1, arr=dft_rows.T)
 
     ## transpose
     return dft_cols.T
@@ -255,14 +275,13 @@ def fft_2d(matrix):
 and then performing another 1D IFFT on all the columns'''
 def ifft_2d(matrix): 
     ## inverse fft on all rows
-    idft_rows = np.apply_along_axis(ifft_1d, axis=1, arr=matrix)
+    ifft_rows = np.apply_along_axis(ifft_1d, axis=1, arr=matrix)
 
     ## inverse fft on all columns
-    idft_cols = np.apply_along_axis(ifft_1d, axis=1, arr=idft_rows.T)
+    ifft_cols = np.apply_along_axis(ifft_1d, axis=1, arr=ifft_rows.T)
     
     ## transpose
-    return idft_cols.T
-
+    return ifft_cols.T
 
 '''Plots the resulting 2D DFT on a log scale plot.'''
 
@@ -274,9 +293,11 @@ def plot_2d_dft(dft_matrix):
     plt.title('2D DFT (Log Scale)')
     plt.show()
 
+'''Checks if a number is a power of 2.'''
 def is_power_of_2(n):
     return (n > 0) and ((n & (n - 1)) == 0)
 
+'''Loads an image from file, converts to grayscale and pads to next power of 2 if necessary.'''
 def load_image(image):
     try:
         original_image = plt.imread(image)
@@ -286,6 +307,8 @@ def load_image(image):
             image_data = original_image
             
         rows, cols = image_data.shape
+
+        unpadded_data = image_data.copy();
         
         if not is_power_of_2(rows) or not is_power_of_2(cols):
             print(f"Image dimensions are not powers of 2... resizing.")
@@ -298,13 +321,13 @@ def load_image(image):
             new_image = np.zeros((next_power, next_power))
             new_image[:rows, :cols] = image_data 
             
-            return new_image
+            return unpadded_data, new_image
         
-        return image_data
+        return unpadded_data, image_data
 
     except FileNotFoundError:
         print(f"Error: Image file '{image}' not found.")
-        return None
+        return None, None
     
 # COMAND LINE PARSING
 
