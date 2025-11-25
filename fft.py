@@ -16,25 +16,38 @@ def mode1(image):
     
     dft_matrix = fft2d_cooley(image_data)
     
-    dft_shifted = np.fft.fftshift(dft_matrix)  # shift zero-frequency component to the center for visualization
+    ## AM I ALLOWED TO USE THIS??
+    dft_shifted = np.fft.fftshift(dft_matrix)  ## shift zero-frequency component to the center for visualization
 
-    # plot original image
-    plt.figure(figsize=(12, 6))
+    ## using built-in numpy function to compare with expected result
+    dft_matrix_numpy = np.fft.fft2(image_data)
+    dft_shifted_numpy = np.fft.fftshift(dft_matrix_numpy)
+    magnitude_spectrum_numpy = np.abs(dft_shifted_numpy)
+
+    ## plot original image
+    plt.figure(figsize=(18, 6))
     
-    plt.subplot(1, 2, 1)
+    plt.subplot(1, 3, 1)
     plt.imshow(original_image, cmap='gray')
     plt.title(f'Original Image ({original_image.shape[0]}x{original_image.shape[1]})')
     plt.axis('off')
     
-    plt.subplot(1, 2, 2)
+    ## plot fft
+    plt.subplot(1, 3, 2)
     magnitude_spectrum = np.abs(dft_shifted)
     plt.imshow(magnitude_spectrum, cmap='gray', norm=LogNorm(vmin=1.0, vmax=magnitude_spectrum.max()))
     plt.title('Centered 2D DFT (Log Scale)')
-    plt.colorbar(label='Magnitude (Log Scale)')
+    plt.axis('off')
+
+    ## plot expected result
+    plt.subplot(1, 3, 3)
+    plt.imshow(magnitude_spectrum_numpy, cmap='gray', norm=LogNorm(vmin=1.0, vmax=magnitude_spectrum_numpy.max()))
+    plt.title('NumPy FFT (Reference)')
     plt.axis('off')
     
     plt.suptitle(f"Mode 1: Original Image and its Fourier Transform")
     plt.show()
+
 
 def mode2(image):
     original_image, image_data = load_image(image)
@@ -98,7 +111,7 @@ def mode3(image):
         print(f"Error: Image file '{image}' not found.")
         return
 
-    image_data = load_image(image)
+    original_image, image_data = load_image(image) ## clem I changed return type of load image please check if this is fine
     if image_data is None:
         return
     
@@ -214,7 +227,7 @@ def ifft_1d(X):
     return x
 
 '''A 1D FFT implementation using the Cooley-Tukey algorithm.'''
-def cooley_tuckey(x):
+def cooley_tuckey(x): ## old cooley_tuckey
     if len(x) < 2:
         return x
     even = cooley_tuckey(x[0::2])
@@ -299,7 +312,7 @@ def load_image(image):
 
     except FileNotFoundError:
         print(f"Error: Image file '{image}' not found.")
-        return None
+        return None, None
     
 # COMAND LINE PARSING
 
