@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
@@ -14,7 +15,7 @@ def mode1(image):
 
         return
     
-    dft_matrix = fft2d_cooley(image_data)
+    dft_matrix = fft_2d(image_data)
     
     ## AM I ALLOWED TO USE THIS??
     dft_shifted = np.fft.fftshift(dft_matrix)  ## shift zero-frequency component to the center for visualization
@@ -55,7 +56,7 @@ def mode2(image):
         return
 
     data_for_fft = image_data.astype(float).copy()
-    dft = fft2d_cooley(data_for_fft)
+    dft = fft_2d(data_for_fft)
     dft_shifted = np.fft.fftshift(dft) ## shift the zero frequency to center, high frequencies will be in corners
 
     ## filter
@@ -117,7 +118,7 @@ def mode3(image):
     
     # STEP 1: Compute 2D DFT
     data_for_fft = image_data.astype(float).copy()  
-    dft = fft2d_cooley(data_for_fft)
+    dft = fft_2d(data_for_fft)
     
     magnitude_spectrum = np.abs(dft)
     flattentened_magnitude = magnitude_spectrum.flatten()    
@@ -172,12 +173,12 @@ def mode4():
             
             # NAIVE
             start_time = time.time()
-            fft_2d(array)
+            dft_2d(array) ## changing this to the naive dft clem please check if this is okay (used to be fft_2d)
             times_naive.append(time.time() - start_time)
             
             # FFT
             start_time = time.time()
-            fft2d_cooley(array)
+            fft_2d(array)
             times_fft.append(time.time() - start_time)
             
         average_time_naive = np.mean(times_naive)
@@ -207,8 +208,8 @@ def mode4():
 
 # FOURIER ALGORITHMS
 
-"""A 1D direct fourier transform implementation."""
-def fft_1d(x):
+"""A naive 1D direct fourier transform implementation."""
+def dft_1d(x):
     N = len(x)
     n = np.arange(N) ## array of 1 to N-1
     k = n.reshape((N,1)) ## column vector of frequency indices k
@@ -217,8 +218,8 @@ def fft_1d(x):
     return X
 
 
-"""A 1D inverse direct fourier transform implementation."""
-def ifft_1d(X):
+"""A naive 1D inverse direct fourier transform implementation."""
+def idft_1d(X):
     N = len(X)
     n = np.arange(N) ## array from 0 to N-1
     k = n.reshape((N,1)) ## frequency indices k
@@ -227,29 +228,44 @@ def ifft_1d(X):
     return x
 
 '''A 1D FFT implementation using the Cooley-Tukey algorithm.'''
-def cooley_tuckey(x): ## old cooley_tuckey
+def fft_1d(x): ## old cooley_tuckey
     if len(x) < 2:
         return x
-    even = cooley_tuckey(x[0::2])
-    odd  = cooley_tuckey(x[1::2])
+    even = fft_1d(x[0::2])
+    odd  = fft_1d(x[1::2])
     factor = np.exp(-2j * np.pi * np.arange(len(x)) / len(x))
     return np.concatenate([ even + factor[:len(x)//2] * odd, even - factor[:len(x)//2] * odd])
 
+'''A 1D inverse FFT implementationof Cooley-Tukey.'''
+def ifft_1d(X):
+    result = ifft_1d_helper(X)
+    return result/len(X)
+
+def ifft_1d_helper(X):
+    N = len(X)
+    if N < 2:
+        return X
+    even = ifft_1d_helper(X[0::2])
+    odd  = ifft_1d_helper(X[1::2])
+    factor = np.exp( 2j * np.pi * np.arange(N) / N ) ## positive sign
+    result = np.concatenate([even + factor[:N//2] * odd, even - factor[:N//2] * odd])
+    return result
+
 '''A 2D FFT implementation using the Cooley-Tukey algorithm.'''
-def fft2d_cooley(matrix):
+def fft_2d(matrix):
     # apply 1D FFT to each row
-    rows_done = np.apply_along_axis(cooley_tuckey, 1, matrix)
+    rows_done = np.apply_along_axis(fft_1d, 1, matrix)
     # apply 1D FFT to each column
-    cols_done = np.apply_along_axis(cooley_tuckey, 1, rows_done.T)
+    cols_done = np.apply_along_axis(fft_1d, 1, rows_done.T)
     return cols_done.T
 
-"""A 2D FFT is performed by first applying a 1D FFT to each row, then each column."""
-def fft_2d(matrix):
+"""A 2D DFT is performed by first applying a 1D DFT to each row, then each column."""
+def dft_2d(matrix):
     ## fft on all rows
-    dft_rows = np.apply_along_axis(fft_1d, axis=1, arr=matrix)
+    dft_rows = np.apply_along_axis(dft_1d, axis=1, arr=matrix)
 
     ## fft on all columns
-    dft_cols = np.apply_along_axis(fft_1d, axis=1, arr=dft_rows.T)
+    dft_cols = np.apply_along_axis(dft_1d, axis=1, arr=dft_rows.T)
 
     ## transpose
     return dft_cols.T
@@ -259,14 +275,13 @@ def fft_2d(matrix):
 and then performing another 1D IFFT on all the columns'''
 def ifft_2d(matrix): 
     ## inverse fft on all rows
-    idft_rows = np.apply_along_axis(ifft_1d, axis=1, arr=matrix)
+    ifft_rows = np.apply_along_axis(ifft_1d, axis=1, arr=matrix)
 
     ## inverse fft on all columns
-    idft_cols = np.apply_along_axis(ifft_1d, axis=1, arr=idft_rows.T)
+    ifft_cols = np.apply_along_axis(ifft_1d, axis=1, arr=ifft_rows.T)
     
     ## transpose
-    return idft_cols.T
-
+    return ifft_cols.T
 
 '''Plots the resulting 2D DFT on a log scale plot.'''
 
