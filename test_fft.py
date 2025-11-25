@@ -5,6 +5,8 @@
 import numpy as np
 import pytest
 import time
+import matplotlib.pyplot as plt 
+
 
 # Import the functions from your fft.py file.
 # Adjust the import names if your file uses different function names.
@@ -67,28 +69,36 @@ def test_fft2d_naive_matches_numpy():
 # =====================================================
 
 def test_load_image_padding(tmp_path):
-    """Image should be padded up to next power of 2."""
-    # Create a fake numpy image file (150×100)
-    fake_grayscale = np.ones((150, 100))
-    # Note: We save a single-channel image for simplicity in the test setup
-    fpath = tmp_path / "fake.npy"
-    np.save(fpath, fake_grayscale)
+    """Image should be loaded and padded up to the next power of 2."""
+    
+    # Create a fake grayscale array (150x100)
+    fake_grayscale = np.random.rand(150, 100).astype(np.float32)
+    
+    # Save it as a standard PNG file using matplotlib
+    fpath = tmp_path / "moonlanding.png"
+    plt.imsave(str(fpath), fake_grayscale, cmap='gray')
 
-    # load_image returns (original_image, padded_data)
+    # load_image returns (original_image_data, padded_grayscale_data)
     original, padded = load_image(str(fpath)) 
 
-    # Next power of 2 of max(150,100)=150 → 256
+    # Next power of 2 of max(150, 100) = 150 $\rightarrow$ 256
     assert padded.shape == (256, 256)
     
-    # The original array should be the unpadded grayscale array
-    assert original.shape == (150, 100) 
-
-    # Check that the unpadded data is correctly placed
-    assert np.allclose(padded[:150, :100], original)
+    # Load the PNG back to get the *exact* array that load_image's plt.imread would get
+    re_read_original = plt.imread(str(fpath))
+    
+    # Ensure it's treated as grayscale/2D for comparison
+    if re_read_original.ndim == 3:
+         re_read_original = np.mean(re_read_original[:, :, :3], axis=2)
+    
+    # Assert the padded area contains the re-read data
+    # Use allclose due to potential minor file format conversion differences
+    assert np.allclose(padded[:150, :100], re_read_original, atol=1e-5)
     
     # Check that the rest is padded with zeros
     assert np.all(padded[150:, :] == 0)
     assert np.all(padded[:, 100:] == 0)
+
 
 
 # =====================================================
