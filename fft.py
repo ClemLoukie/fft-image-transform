@@ -17,14 +17,9 @@ def mode1(image):
         return
     
     dft_matrix = fft_2d(image_data)
-    
-    ## AM I ALLOWED TO USE THIS??
-    #dft_shifted = np.fft.fftshift(dft_matrix)  ## shift zero-frequency component to the center for visualization
 
     ## using built-in numpy function to compare with expected result
     dft_matrix_numpy = np.fft.fft2(image_data)
-    #dft_shifted_numpy = np.fft.fftshift(dft_matrix_numpy)
-    #magnitude_spectrum_numpy = np.abs(dft_shifted_numpy)
     magnitude_spectrum_numpy = np.abs(dft_matrix_numpy)
 
     ## plot original image
@@ -37,7 +32,6 @@ def mode1(image):
     
     ## plot fft
     plt.subplot(1, 3, 2)
-    #magnitude_spectrum = np.abs(dft_shifted)
     magnitude_spectrum = np.abs(dft_matrix)
     plt.imshow(magnitude_spectrum, cmap='gray', norm=LogNorm(vmin=1.0, vmax=magnitude_spectrum.max()))
     plt.title(f'Centered 2D DFT (Log Scale) ({magnitude_spectrum.shape[0]}x{magnitude_spectrum.shape[1]})')
@@ -50,6 +44,7 @@ def mode1(image):
     plt.axis('off')
     
     plt.suptitle(f"Mode 1: Original Image and its Fourier Transform")
+    plt.tight_layout()
     plt.show()
 
 
@@ -60,11 +55,9 @@ def mode2(image):
 
     data_for_fft = image_data.astype(float).copy()
     dft = fft_2d(data_for_fft)
-    #dft_shifted = np.fft.fftshift(dft) ## shift the zero frequency to center, high frequencies will be in corners
     dft_shifted = fftshift(dft) ## shift the zero frequency to center, high frequencies will be in corners
 
     ## filter
-    #rows, cols = dft_shifted.shape
     rows, cols = dft.shape
     center_r  =  rows // 2
     center_c = cols // 2
@@ -79,7 +72,6 @@ def mode2(image):
     mask = dist <= radius ## true if the point is within the radius
 
     dft_filtered_shifted = dft_shifted * mask ## setting all frequencies outside the radius to 0
-    #dft_filtered_shifted = dft * mask ## setting all frequencies outside the radius to 0
 
     nonzeros = np.count_nonzero(mask)
     total = mask.size
@@ -87,7 +79,6 @@ def mode2(image):
 
     dft_filtered = ifftshift(dft_filtered_shifted) ## shift back before inverse FFT, zero frequencies at corners
     denoised_complex = ifft_2d(dft_filtered.copy()) ## inverse FFT to get denoised image
-    #denoised_complex = ifft_2d(dft_filtered_shifted.copy()) ## inverse FFT to get denoised image
     denoised_real = np.real(denoised_complex) ## keep real part
 
     orig_rows, orig_cols = original_image.shape[:2] ## crop
@@ -108,6 +99,7 @@ def mode2(image):
     plt.title('Denoised (0.08 Radius Low-Pass Filter)')
     plt.axis('off')
     plt.suptitle('Mode 2: Original and Denoised Image')
+    plt.tight_layout()
     plt.show()
 
 def mode3(image):
@@ -325,13 +317,6 @@ def load_image(image):
         
         if not is_power_of_2(rows) or not is_power_of_2(cols):
             print(f"Image dimensions are not powers of 2... resizing.")
-            
-            # max_dim = max(rows, cols)
-            # next_power = 1
-            # while next_power < max_dim: ## find next power of 2 to pad wth 0s
-            #     next_power *= 2
-            
-            #new_image = np.zeros((next_power, next_power))
             new_image = np.zeros((power_two_rows, power_two_cols))
             new_og_image = np.zeros((power_two_rows, power_two_cols))
             new_image[:rows, :cols] = image_data 
