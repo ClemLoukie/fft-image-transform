@@ -55,6 +55,8 @@ def mode2(image):
 
     data_for_fft = image_data.astype(float).copy()
     dft = fft_2d(data_for_fft)
+
+    #============================== CIRCLE MASK METHOD ==============================
     dft_shifted = fftshift(dft) ## shift the zero frequency to center, high frequencies will be in corners
 
     ## filter
@@ -62,7 +64,7 @@ def mode2(image):
     center_r  =  rows // 2
     center_c = cols // 2
 
-    keep_frac = 0.08  ## we only keep 10% of the lowest frequencies
+    keep_frac = 0.10  ## we only keep 10% of the lowest frequencies
     radius = int(min(rows, cols) * keep_frac) ## only freqs inside this radius will be set to 1 in the mask
 
     r = np.arange(rows) - center_r ## array of row coordinates to compute distance later
@@ -75,6 +77,36 @@ def mode2(image):
 
     nonzeros = np.count_nonzero(mask)
     total = mask.size
+    #============================== END OF CIRCLE MASK METHOD ==============================
+
+    #============================== THRESHOLD METHOD ==============================
+    # dft_shifted = fftshift(dft)  ## shift zero-frequency to center
+
+    # magnitude_spectrum = np.abs(dft_shifted)    # compute magnitude spectrum
+    # cutoff_percentile = 2  #percentile-based (keep only coefficients in top X percentile)
+    # threshold = np.percentile(magnitude_spectrum, 100 - cutoff_percentile)
+
+    # mask = magnitude_spectrum >= threshold    # mask: 1 where magnitude >= threshold, 0 elsewhere 
+    # dft_filtered_shifted = dft_shifted * mask
+
+    # nonzeros = np.count_nonzero(mask)
+    # total = mask.size
+    #============================== END OF FREQUENCY THRESHOLD METHOD ==============================
+
+    #============================== CUTOFF METHOD ==============================
+    # dft_shifted = fftshift(dft)           # shift zero-frequency to center
+    # magnitude_spectrum = np.abs(dft_shifted)
+
+    # cutoff_value = 40000    # example value — you choose this
+
+    # mask = magnitude_spectrum >= cutoff_value    # mask: keep coefficients whose magnitude >= cutoff_value
+
+    # dft_filtered_shifted = dft_shifted * mask
+
+    # nonzeros = np.count_nonzero(mask)
+    # total = mask.size
+    #============================== END OF FREQUENCY THRESHOLD METHOD ==============================
+
     print(f"Using {nonzeros} non-zero Fourier coefficients out of {total} ({nonzeros/total*100:.2f}%)")
 
     dft_filtered = ifftshift(dft_filtered_shifted) ## shift back before inverse FFT, zero frequencies at corners
@@ -96,7 +128,7 @@ def mode2(image):
 
     plt.subplot(1,2,2)
     plt.imshow(denoised_cropped, cmap='gray')
-    plt.title('Denoised (0.08 Radius Low-Pass Filter)')
+    plt.title('Denoised (0.10 Low-Pass Filter)')
     plt.axis('off')
     plt.suptitle('Mode 2: Original and Denoised Image')
     plt.tight_layout()
