@@ -112,7 +112,7 @@ def mode3(image):
         print(f"Error: Image file '{image}' not found.")
         return
 
-    original_image, image_data = load_image(image) ## clem I changed return type of load image please check if this is fine
+    original_image, image_data = load_image(image)
     if image_data is None:
         return
     
@@ -123,34 +123,38 @@ def mode3(image):
     magnitude_spectrum = np.abs(dft)
     flattentened_magnitude = magnitude_spectrum.flatten()    
     
-    levels = [100, 50, 90, 95, 99, 99.9]  ## different compression levels (percentage of coefficients to keep)
-        
+
     # STEP 2: COMPRESSION
-    
-    images = []
+    #levels = [0, 50, 90, 95, 99, 99.9]  ## different compression levels from 0% to 99.9%
+
+    # switch to percentage kept
+
+    levels = [100, 50, 10, 5, 1, 0.01] # Percent of data we are keeping = 0% to 99.9%
+
+    compressed_images = [] # contain the 6 compressed images
+
     for level in levels:
         # Get the compression
+
+        # Method only taking top coefficent
         threshold = np.percentile(flattentened_magnitude, 100 - level)
         mask = magnitude_spectrum >= threshold  ## keep coefficients above threshold
-        compressed_dft = dft * mask
-    
-        nonzeros = np.count_nonzero(mask)
-        total = mask.size
-        print(f"Level {level}%: Using {nonzeros} non-zero Fourier coefficients out of {total}")
+        compressed_dft = dft * mask # This is how we compress
+
+        print("Level " + str(100-level) + "% : Using " + str(np.count_nonzero(mask)) + " non zeros")
         
         # Inverse DFT to get compressed image
         compressed_image_complex = ifft_2d(compressed_dft.copy())
-        compressed_image_real = np.real(compressed_image_complex)
-        images.append(compressed_image_real)
+        compressed_image_real = np.real(ifft_2d(compressed_dft.copy()))
+        compressed_images.append(compressed_image_real)
         
         
     # STEP 3: DISPLAY
-    for i in range (len(images)):
-        compressed_image = images[i]
-        level = levels[i]
+    for i in range (len(compressed_images)):
+        compressed_image = compressed_images[i]
         plt.subplot(2, 3, i + 1)
         plt.imshow(compressed_image, cmap='gray')
-        plt.title(f'Level {level}%')
+        plt.title(f'Level {100-levels[i]}%')
         plt.axis('off')
         
     plt.suptitle("Mode 3: Image Compression at Different Levels")
@@ -286,11 +290,11 @@ def ifft_2d(matrix):
 '''Plots the resulting 2D DFT on a log scale plot.'''
 
 def plot_2d_dft(dft_matrix):
-    mag_spec = np.log(np.abs(dft_matrix) + 1)  ## log scale 
+    magnitude_logged = np.log(np.abs(dft_matrix) + 1)  ## log scale
     
-    plt.imshow(mag_spec, cmap='gray')
+    plt.imshow(magnitude_logged, cmap='gray')
     plt.colorbar()
-    plt.title('2D DFT (Log Scale)')
+    plt.title('2D DFT')
     plt.show()
 
 '''Checks if a number is a power of 2.'''
