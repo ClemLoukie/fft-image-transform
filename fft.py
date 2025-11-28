@@ -18,29 +18,31 @@ def mode1(image):
     
     dft_matrix = fft_2d(image_data)
 
-    ## using built-in numpy function to compare with expected result
-    dft_matrix_numpy = np.fft.fft2(image_data)
-    magnitude_spectrum_numpy = np.abs(dft_matrix_numpy)
+#============================= REFERENCE USING NUMPY - Implemented for experiment =============================#
+    # ## using built-in numpy function to compare with expected result
+    # dft_matrix_numpy = np.fft.fft2(image_data)
+    # magnitude_spectrum_numpy = np.abs(dft_matrix_numpy)
+
+    # ## plot expected result
+    # plt.subplot(1, 3, 3)
+    # plt.imshow(magnitude_spectrum_numpy, cmap='gray', norm=LogNorm(vmin=1.0, vmax=magnitude_spectrum_numpy.max()))
+    # plt.title('NumPy FFT (Reference)')
+    # plt.axis('off')
+#============================= END OF REFERENCE USING NUMPY =============================#
 
     ## plot original image
     plt.figure(figsize=(18, 6))
     
-    plt.subplot(1, 3, 1)
+    plt.subplot(1, 2, 1)
     plt.imshow(original_image, cmap='gray')
     plt.title(f'Original Image ({original_image.shape[0]}x{original_image.shape[1]})')
     plt.axis('off')
     
     ## plot fft
-    plt.subplot(1, 3, 2)
+    plt.subplot(1, 2, 2)
     magnitude_spectrum = np.abs(dft_matrix)
     plt.imshow(magnitude_spectrum, cmap='gray', norm=LogNorm(vmin=1.0, vmax=magnitude_spectrum.max()))
     plt.title(f'Centered 2D DFT (Log Scale) ({magnitude_spectrum.shape[0]}x{magnitude_spectrum.shape[1]})')
-    plt.axis('off')
-
-    ## plot expected result
-    plt.subplot(1, 3, 3)
-    plt.imshow(magnitude_spectrum_numpy, cmap='gray', norm=LogNorm(vmin=1.0, vmax=magnitude_spectrum_numpy.max()))
-    plt.title('NumPy FFT (Reference)')
     plt.axis('off')
     
     plt.suptitle(f"Mode 1: Original Image and its Fourier Transform")
@@ -79,11 +81,11 @@ def mode2(image):
     total = mask.size
     #============================== END OF CIRCLE MASK METHOD ==============================
 
-    #============================== THRESHOLD METHOD ==============================
+    #============================== THRESHOLD METHOD - Implemented for Experiment ==============================
     # dft_shifted = fftshift(dft)  ## shift zero-frequency to center
 
     # magnitude_spectrum = np.abs(dft_shifted)    # compute magnitude spectrum
-    # cutoff_percentile = 2  #percentile-based (keep only coefficients in top X percentile)
+    # cutoff_percentile = 5  #keep only coefficients in top X percentile
     # threshold = np.percentile(magnitude_spectrum, 100 - cutoff_percentile)
 
     # mask = magnitude_spectrum >= threshold    # mask: 1 where magnitude >= threshold, 0 elsewhere 
@@ -93,12 +95,11 @@ def mode2(image):
     # total = mask.size
     #============================== END OF FREQUENCY THRESHOLD METHOD ==============================
 
-    #============================== CUTOFF METHOD ==============================
+    #============================== CUTOFF METHOD - Implemented for Experiment ==============================
     # dft_shifted = fftshift(dft)           # shift zero-frequency to center
     # magnitude_spectrum = np.abs(dft_shifted)
 
-    # cutoff_value = 40000    # example value — you choose this
-
+    # cutoff_value = 40000
     # mask = magnitude_spectrum >= cutoff_value    # mask: keep coefficients whose magnitude >= cutoff_value
 
     # dft_filtered_shifted = dft_shifted * mask
@@ -367,7 +368,7 @@ def fftshift(array):
     array = np.asarray(array)
     if array.ndim == 1:
         mid = array.shape[0] // 2
-        return np.concatenate([array[mid:], array[:mid]])
+        return np.concatenate([array[mid:], array[:mid]]) ## shift low frequencies at the beginning, high frequencies at the end
     elif array.ndim == 2:
         rows, cols = array.shape
         row_mid = rows // 2

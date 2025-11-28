@@ -10,9 +10,13 @@ Example Usage: python fft.py -m 1 -i moonlanding.png
 # Arguments
 
 -m mode: Specifies the operation mode. Options include:
+
     1 (default) - FFT visualization: computes the FFT and displays original + Fourier transform.
+
     2 - Denoising: reduces noise in the image using FFT and displays the denoised result.
+
     3 - Compression: Performs image compression using FFT and visualizes the compressed image.
+
     4 - Runtime analysis: Generates runtime analysis plots for different FFT implementations.
 
 -i image (optional): Path to the input image file. If not provided, a default moonlanding.png image is used.
