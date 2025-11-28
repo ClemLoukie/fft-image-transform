@@ -5,6 +5,7 @@ from matplotlib.colors import LogNorm
 import argparse
 import sys
 import time
+import cv2
 
 # MODE DEFINITIONS
 
@@ -16,37 +17,36 @@ def mode1(image):
         return
     
     dft_matrix = fft_2d(image_data)
-    
-    ## AM I ALLOWED TO USE THIS??
-    dft_shifted = np.fft.fftshift(dft_matrix)  ## shift zero-frequency component to the center for visualization
 
-    ## using built-in numpy function to compare with expected result
-    dft_matrix_numpy = np.fft.fft2(image_data)
-    dft_shifted_numpy = np.fft.fftshift(dft_matrix_numpy)
-    magnitude_spectrum_numpy = np.abs(dft_shifted_numpy)
+#============================= REFERENCE USING NUMPY - Implemented for experiment =============================#
+    # ## using built-in numpy function to compare with expected result
+    # dft_matrix_numpy = np.fft.fft2(image_data)
+    # magnitude_spectrum_numpy = np.abs(dft_matrix_numpy)
+
+    # ## plot expected result
+    # plt.subplot(1, 3, 3)
+    # plt.imshow(magnitude_spectrum_numpy, cmap='gray', norm=LogNorm(vmin=1.0, vmax=magnitude_spectrum_numpy.max()))
+    # plt.title('NumPy FFT (Reference)')
+    # plt.axis('off')
+#============================= END OF REFERENCE USING NUMPY =============================#
 
     ## plot original image
     plt.figure(figsize=(18, 6))
     
-    plt.subplot(1, 3, 1)
+    plt.subplot(1, 2, 1)
     plt.imshow(original_image, cmap='gray')
     plt.title(f'Original Image ({original_image.shape[0]}x{original_image.shape[1]})')
     plt.axis('off')
     
     ## plot fft
-    plt.subplot(1, 3, 2)
-    magnitude_spectrum = np.abs(dft_shifted)
+    plt.subplot(1, 2, 2)
+    magnitude_spectrum = np.abs(dft_matrix)
     plt.imshow(magnitude_spectrum, cmap='gray', norm=LogNorm(vmin=1.0, vmax=magnitude_spectrum.max()))
-    plt.title('Centered 2D DFT (Log Scale)')
-    plt.axis('off')
-
-    ## plot expected result
-    plt.subplot(1, 3, 3)
-    plt.imshow(magnitude_spectrum_numpy, cmap='gray', norm=LogNorm(vmin=1.0, vmax=magnitude_spectrum_numpy.max()))
-    plt.title('NumPy FFT (Reference)')
+    plt.title(f'Centered 2D DFT (Log Scale) ({magnitude_spectrum.shape[0]}x{magnitude_spectrum.shape[1]})')
     plt.axis('off')
     
     plt.suptitle(f"Mode 1: Original Image and its Fourier Transform")
+    plt.tight_layout()
     plt.show()
 
 
@@ -57,10 +57,12 @@ def mode2(image):
 
     data_for_fft = image_data.astype(float).copy()
     dft = fft_2d(data_for_fft)
-    dft_shifted = np.fft.fftshift(dft) ## shift the zero frequency to center, high frequencies will be in corners
+
+    #============================== CIRCLE MASK METHOD ==============================
+    dft_shifted = fftshift(dft) ## shift the zero frequency to center, high frequencies will be in corners
 
     ## filter
-    rows, cols = dft_shifted.shape
+    rows, cols = dft.shape
     center_r  =  rows // 2
     center_c = cols // 2
 
@@ -77,9 +79,38 @@ def mode2(image):
 
     nonzeros = np.count_nonzero(mask)
     total = mask.size
-    print(f"Using {nonzeros} non-zero Fourier coefficients out of {total}")
+    #============================== END OF CIRCLE MASK METHOD ==============================
 
-    dft_filtered = np.fft.ifftshift(dft_filtered_shifted) ## shift back before inverse FFT, zero frequencies at corners
+    #============================== THRESHOLD METHOD - Implemented for Experiment ==============================
+    # dft_shifted = fftshift(dft)  ## shift zero-frequency to center
+
+    # magnitude_spectrum = np.abs(dft_shifted)    # compute magnitude spectrum
+    # cutoff_percentile = 5  #keep only coefficients in top X percentile
+    # threshold = np.percentile(magnitude_spectrum, 100 - cutoff_percentile)
+
+    # mask = magnitude_spectrum >= threshold    # mask: 1 where magnitude >= threshold, 0 elsewhere 
+    # dft_filtered_shifted = dft_shifted * mask
+
+    # nonzeros = np.count_nonzero(mask)
+    # total = mask.size
+    #============================== END OF FREQUENCY THRESHOLD METHOD ==============================
+
+    #============================== CUTOFF METHOD - Implemented for Experiment ==============================
+    # dft_shifted = fftshift(dft)           # shift zero-frequency to center
+    # magnitude_spectrum = np.abs(dft_shifted)
+
+    # cutoff_value = 40000
+    # mask = magnitude_spectrum >= cutoff_value    # mask: keep coefficients whose magnitude >= cutoff_value
+
+    # dft_filtered_shifted = dft_shifted * mask
+
+    # nonzeros = np.count_nonzero(mask)
+    # total = mask.size
+    #============================== END OF FREQUENCY THRESHOLD METHOD ==============================
+
+    print(f"Using {nonzeros} non-zero Fourier coefficients out of {total} ({nonzeros/total*100:.2f}%)")
+
+    dft_filtered = ifftshift(dft_filtered_shifted) ## shift back before inverse FFT, zero frequencies at corners
     denoised_complex = ifft_2d(dft_filtered.copy()) ## inverse FFT to get denoised image
     denoised_real = np.real(denoised_complex) ## keep real part
 
@@ -98,9 +129,10 @@ def mode2(image):
 
     plt.subplot(1,2,2)
     plt.imshow(denoised_cropped, cmap='gray')
-    plt.title('Denoised (low-pass filtered)')
+    plt.title('Denoised (0.10 Low-Pass Filter)')
     plt.axis('off')
     plt.suptitle('Mode 2: Original and Denoised Image')
+    plt.tight_layout()
     plt.show()
 
 def mode3(image):
@@ -304,7 +336,7 @@ def is_power_of_2(n):
 '''Loads an image from file, converts to grayscale and pads to next power of 2 if necessary.'''
 def load_image(image):
     try:
-        original_image = plt.imread(image)
+        original_image = cv2.imread(image, cv2.IMREAD_GRAYSCALE)  ## read directly as grayscale
         if original_image.ndim == 3: ## if not in 2D
             image_data = np.mean(original_image[:, :, :3], axis=2) ## convert by averaging RGB channels
         else:
@@ -312,26 +344,56 @@ def load_image(image):
             
         rows, cols = image_data.shape
 
-        unpadded_data = image_data.copy();
+        unpadded_data = image_data.copy()
+
+        if not is_power_of_2(rows):
+            power_two_rows =  2 ** int(np.ceil(math.log2(rows)))
+
+        if not is_power_of_2(cols):
+            power_two_cols =  2 ** int(np.ceil(math.log2(cols)))
         
         if not is_power_of_2(rows) or not is_power_of_2(cols):
             print(f"Image dimensions are not powers of 2... resizing.")
-            
-            max_dim = max(rows, cols)
-            next_power = 1
-            while next_power < max_dim: ## find next power of 2 to pad wth 0s
-                next_power *= 2
-            
-            new_image = np.zeros((next_power, next_power))
+            new_image = np.zeros((power_two_rows, power_two_cols))
+            new_og_image = np.zeros((power_two_rows, power_two_cols))
             new_image[:rows, :cols] = image_data 
+            new_og_image[:rows, :cols] = unpadded_data
             
-            return unpadded_data, new_image
+            return new_og_image, new_image
         
-        return unpadded_data, image_data
+        return new_og_image, image_data
 
     except FileNotFoundError:
         print(f"Error: Image file '{image}' not found.")
         return None, None
+    
+"""Shifts the zero-frequency component to the center of the spectrum."""
+def fftshift(array):
+    array = np.asarray(array)
+    if array.ndim == 1:
+        mid = array.shape[0] // 2
+        return np.concatenate([array[mid:], array[:mid]]) ## shift low frequencies at the beginning, high frequencies at the end
+    elif array.ndim == 2:
+        rows, cols = array.shape
+        row_mid = rows // 2
+        col_mid = cols // 2
+        return np.block([[array[row_mid:, col_mid:], array[row_mid:, :col_mid]],[array[:row_mid, col_mid:], array[:row_mid, :col_mid]]]) ## swap quadrants
+    else:
+        raise ValueError("fftshift only supports 1D and 2D arrays")
+
+"""Inverse of fftshift: moves zero-frequency component back to top-left."""
+def ifftshift(arr):
+    arr = np.asarray(arr)
+    if arr.ndim == 1:
+        mid = (arr.shape[0] + 1) // 2  # handle odd lengths
+        return np.concatenate([arr[mid:], arr[:mid]])
+    elif arr.ndim == 2:
+        rows, cols = arr.shape
+        row_mid = (rows + 1) // 2
+        col_mid = (cols + 1) // 2
+        return np.block([[arr[row_mid:, col_mid:], arr[row_mid:, :col_mid]],[arr[:row_mid, col_mid:], arr[:row_mid, :col_mid]]])
+    else:
+        raise ValueError("ifftshift only supports 1D and 2D arrays")
     
 # COMAND LINE PARSING
 
